@@ -1,0 +1,28 @@
+apiVersion: builds.katanomi.dev/v1alpha1
+kind: Build
+spec:
+  workspaces:
+    - description: |
+        This workspace is shared among all the pipeline tasks to read/write common resources
+      name: source
+  tasks:
+    - name: build-image
+      timeout: 8m
+      retries: 1
+      taskRef:
+        kind: ClusterTask
+        name: build-image-buildkit
+      workspaces:
+        - name: source
+          workspace: source
+      when: []
+      params:
+        - name: container-images
+          value:
+            - harbor-devops.alauda.cn/zhangjj/goalng:$(build.git.lastCommit.shortID)
+        - name: labels
+          value:
+            - a=c
+  runTemplate:
+    spec:
+      taskRunSpecs: []

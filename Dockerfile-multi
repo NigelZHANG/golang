@@ -1,0 +1,341 @@
+FROM testtoolchain-harbor.alauda.cn/e2e-automation/qaimage:latest
+RUN sed -i 's+dl-cdn.alpinelinux.org+internal-mirrors.alauda.cn/repository+g' /etc/apk/repositories
+
+
+
+
+
+
+
+RUN apk update && apk add git && apk add tzdata
+
+
+
+
+
+
+
+ENV GOPROXY="https://build-nexus.alauda.cn/repository/golang/,https://goproxy.cn,direct"
+
+
+
+
+
+
+
+ENV GONOSUMDB="*"
+
+
+
+
+
+
+
+ENV GOMAXPROCS=6
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ARG binarysource=build
+
+
+
+
+
+
+
+ARG component=controller
+
+
+
+
+
+
+
+ARG app_version=dev
+
+
+
+
+
+
+
+ENV APP_VERSION=${app_version}
+
+
+
+
+
+
+
+WORKDIR /workspace
+
+
+
+
+
+
+
+COPY ./ /workspace
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+RUN git rev-parse HEAD > /bin/HEAD
+
+
+
+
+
+
+
+RUN set -eux ; \
+
+
+
+
+
+
+
+  if [[ "${component}" = "operator" ]] ; then \
+
+
+
+
+
+
+
+  cp -rf /workspace/charts /bin/charts ; \
+
+
+
+
+
+
+
+  else \
+
+
+
+
+
+
+
+  mkdir -p /bin/charts/ && touch /bin/charts/.keep ; \
+
+
+
+
+
+
+
+  fi
+
+
+
+
+
+
+
+RUN set -eux ; \
+
+
+
+
+
+
+
+  if [[ "${binarysource}" = "build" ]] ; then \
+
+
+
+
+
+
+
+  apk update && apk add gcc musl-dev ; \
+
+
+
+
+
+
+
+  CGO_ENABLED=0 go build -buildmode=pie -ldflags "-w -s -X main.version=${APP_VERSION} -linkmode=external -extldflags=-Wl,-z,relro,-z,now" -o /bin/${component} cmd/${component}/main.go ; \
+
+
+
+
+
+
+
+  else \
+
+
+
+
+
+
+
+  ARCH= &&dpkgArch="$(arch)" \
+
+
+
+
+
+
+
+  && case "${dpkgArch}" in \
+
+
+
+
+
+
+
+  x86_64) ARCH='amd64';; \
+
+
+
+
+
+
+
+  aarch64) ARCH='arm64';; \
+
+
+
+
+
+
+
+  *) echo "unsupported architecture"; exit 1 ;; \
+
+
+
+
+
+
+
+  esac \
+
+
+
+
+
+
+
+  && cp /workspace/bin/${ARCH}/${component} /bin/${component} ; \
+
+
+
+
+
+
+
+  fi
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# origin image: gcr.io/distroless/static:nonroot
+
+
+
+
+
+
+
+FROM testtoolchain-harbor.alauda.cn/e2e-automation/qaimage:latest
+
+
+
+
+
+
+
+
+ARG commit_id=dev
+
+
+
+
+
+
+
+ARG app_version=dev
+
+
+
+
+
+
+
+ENV COMMIT_ID=${commit_id}
+
+
+
+
+
+
+
+ENV APP_VERSION=${app_version}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ARG component=controller
+
+
+
+
+
+
+
+ENV KO_DATA_PATH=/kodata
+
+ENTRYPOINT [ "/app" ]
